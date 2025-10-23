@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Signals - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="navbar glass-card">
+        <div class="nav-brand">
+            <svg width="40" height="40" viewBox="0 0 60 60" fill="none">
+                <circle cx="30" cy="30" r="28" stroke="currentColor" stroke-width="2"/>
+                <path d="M20 30 L27 23 L33 35 L40 28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Trading Signals</span>
+        </div>
+        <button class="glass-button small" id="logoutBtn">Logout</button>
+    </div>
+
+    <div class="container dashboard-container">
+        <div class="stats-grid">
+            <div class="glass-card stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-value" id="totalSignals">0</div>
+                <div class="stat-label">Total Signals</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value" id="buySignals">0</div>
+                <div class="stat-label">Buy Signals</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-icon">❌</div>
+                <div class="stat-value" id="sellSignals">0</div>
+                <div class="stat-label">Sell Signals</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-value" id="lastUpdate">--:--</div>
+                <div class="stat-label">Last Update</div>
+            </div>
+        </div>
+
+        <div class="glass-card signals-card">
+            <div class="card-header">
+                <h2>Recent Signals</h2>
+                <button class="glass-button small" id="refreshBtn">Refresh</button>
+            </div>
+            <div id="signalsList" class="signals-list">
+                <div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <p>No signals yet</p>
+                    <p class="empty-subtitle">Signals from TradingView will appear here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
