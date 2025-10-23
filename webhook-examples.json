@@ -1,0 +1,101 @@
+{
+  "examples": [
+    {
+      "name": "Basic Buy Signal",
+      "description": "Minimal required fields for a buy signal",
+      "payload": {
+        "symbol": "BTCUSDT",
+        "action": "BUY",
+        "price": "43500.00",
+        "timeframe": "1H",
+        "strategy": "EMA Crossover"
+      }
+    },
+    {
+      "name": "Complete Sell Signal",
+      "description": "Full signal with all optional fields",
+      "payload": {
+        "symbol": "ETHUSDT",
+        "action": "SELL",
+        "price": "2280.75",
+        "timeframe": "4H",
+        "strategy": "RSI Overbought",
+        "stopLoss": "2320.00",
+        "takeProfit": "2200.00",
+        "volume": "1500.50",
+        "notes": "RSI above 70, divergence detected"
+      }
+    },
+    {
+      "name": "TradingView Dynamic",
+      "description": "Using TradingView placeholders",
+      "payload": {
+        "symbol": "{{ticker}}",
+        "action": "{{strategy.order.action}}",
+        "price": "{{close}}",
+        "timeframe": "{{interval}}",
+        "strategy": "Custom Strategy Name",
+        "stopLoss": "{{plot_0}}",
+        "takeProfit": "{{plot_1}}",
+        "volume": "{{volume}}",
+        "notes": "Signal at {{timenow}}"
+      }
+    },
+    {
+      "name": "Crypto Futures",
+      "description": "Futures trading signal with leverage",
+      "payload": {
+        "symbol": "BTCUSDT PERP",
+        "action": "BUY",
+        "price": "43250.00",
+        "timeframe": "15M",
+        "strategy": "Support Breakout",
+        "stopLoss": "42800.00",
+        "takeProfit": "44500.00",
+        "volume": "10.0",
+        "notes": "Leverage: 10x, Entry after breakout confirmation"
+      }
+    },
+    {
+      "name": "Forex Signal",
+      "description": "Foreign exchange pair signal",
+      "payload": {
+        "symbol": "EURUSD",
+        "action": "SELL",
+        "price": "1.0850",
+        "timeframe": "1D",
+        "strategy": "Head and Shoulders",
+        "stopLoss": "1.0900",
+        "takeProfit": "1.0750",
+        "notes": "Major resistance at 1.09"
+      }
+    },
+    {
+      "name": "Stock Signal",
+      "description": "Traditional stock trading signal",
+      "payload": {
+        "symbol": "AAPL",
+        "action": "BUY",
+        "price": "178.50",
+        "timeframe": "1W",
+        "strategy": "Moving Average Bounce",
+        "stopLoss": "175.00",
+        "takeProfit": "185.00",
+        "volume": "1000",
+        "notes": "Bounced off 200 SMA, earnings next week"
+      }
+    }
+  ],
+  "curl_examples": {
+    "basic": "curl -X POST YOUR_WEBHOOK_URL -H 'Content-Type: application/json' -d '{\"symbol\":\"BTCUSDT\",\"action\":\"BUY\",\"price\":\"43500.00\",\"timeframe\":\"1H\",\"strategy\":\"Test\"}'",
+    "from_file": "curl -X POST YOUR_WEBHOOK_URL -H 'Content-Type: application/json' -d @webhook-examples.json"
+  },
+  "testing_tips": [
+    "Test your webhook before connecting TradingView",
+    "Use the testWebhook() function in Code.gs",
+    "Check Google Apps Script logs for errors",
+    "Verify JSON format is valid",
+    "Ensure all required fields are present",
+    "Start with basic examples before complex ones"
+  ]
+}
