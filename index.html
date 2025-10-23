@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Signals - Login</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="glass-card login-card">
+            <div class="logo">
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                    <circle cx="30" cy="30" r="28" stroke="currentColor" stroke-width="2"/>
+                    <path d="M20 30 L27 23 L33 35 L40 28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h1>Trading Signals</h1>
+            <p class="subtitle">Enter OTP to access your signals</p>
+            
+            <div id="loginForm">
+                <div class="otp-container">
+                    <input type="text" maxlength="1" class="otp-input" id="otp1" autofocus>
+                    <input type="text" maxlength="1" class="otp-input" id="otp2">
+                    <input type="text" maxlength="1" class="otp-input" id="otp3">
+                    <input type="text" maxlength="1" class="otp-input" id="otp4">
+                    <input type="text" maxlength="1" class="otp-input" id="otp5">
+                    <input type="text" maxlength="1" class="otp-input" id="otp6">
+                </div>
+                <div id="errorMessage" class="error-message"></div>
+                <button class="glass-button" id="verifyBtn">Verify OTP</button>
+                <div class="hint">Demo OTP: 123456</div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
