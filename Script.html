@@ -1,0 +1,883 @@
+<script>
+/**
+ * Trading Signals Web App - Frontend JavaScript
+ * Company: Maurvi Consultants
+ * App Name: Automated Trading Signals
+ */
+
+// Global state
+const state = {
+  sessionToken: localStorage.getItem('sessionToken') || null,
+  alerts: [],
+  syncStatus: {},
+  currentView: 'dashboard',
+  sortBy: 'time',
+  sortOrder: 'desc',
+  isMuted: false,
+  theme: localStorage.getItem('theme') || 'dark',
+  otpExpiryTime: null,
+  otpInterval: null
+};
+
+// Initialize app
+document.addEventListener('DOMContentLoaded', function() {
+  initializeTheme();
+  checkExistingSession();
+  initializeEventListeners();
+});
+
+// Theme Management
+function initializeTheme() {
+  document.body.classList.toggle('dark-mode', state.theme === 'dark');
+}
+
+function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('theme', state.theme);
+  document.body.classList.toggle('dark-mode', state.theme === 'dark');
+  
+  // Animate theme transition
+  document.body.style.transition = 'background-color 0.3s ease, color 0.3s ease';
+}
+
+// Session Management
+function checkExistingSession() {
+  if (state.sessionToken) {
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (response.valid) {
+          showApp();
+        } else {
+          showLogin();
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('Session check failed:', error);
+        showLogin();
+      })
+      .checkSession(state.sessionToken);
+  } else {
+    showLogin();
+  }
+}
+
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appContainer').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appContainer').style.display = 'block';
+  document.getElementById('appContainer').style.animation = 'slideIn 0.5s ease-out';
+  loadData();
+  startDataPolling();
+}
+
+// Event Listeners
+function initializeEventListeners() {
+  // Login
+  document.getElementById('generateOtpBtn').addEventListener('click', generateOTP);
+  document.getElementById('loginThemeToggle').addEventListener('click', toggleTheme);
+  
+  // OTP input auto-focus
+  const otpInputs = document.querySelectorAll('.otp-input');
+  otpInputs.forEach((input, index) => {
+    input.addEventListener('input', function(e) {
+      if (e.target.value.length === 1 && index < otpInputs.length - 1) {
+        otpInputs[index + 1].focus();
+      }
+      // Auto-verify when all inputs are filled
+      if (index === otpInputs.length - 1 && e.target.value.length === 1) {
+        const otp = Array.from(otpInputs).map(i => i.value).join('');
+        if (otp.length === 6) {
+          verifyOTP(otp);
+        }
+      }
+    });
+    
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && e.target.value === '' && index > 0) {
+        otpInputs[index - 1].focus();
+      }
+    });
+    
+    // Allow paste
+    input.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const pastedData = e.clipboardData.getData('text').replace(/\D/g, '');
+      if (pastedData.length === 6) {
+        otpInputs.forEach((inp, idx) => {
+          inp.value = pastedData[idx] || '';
+        });
+        verifyOTP(pastedData);
+      }
+    });
+  });
+  
+  // App controls
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.getElementById('muteToggle').addEventListener('click', toggleMute);
+  document.getElementById('logoButton').addEventListener('click', function() {
+    switchView('dashboard');
+    // Logo animation
+    this.style.animation = 'logoPress 0.3s ease';
+    setTimeout(() => {
+      this.style.animation = '';
+    }, 300);
+  });
+  
+  // View toggle
+  document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const view = this.getAttribute('data-view');
+      switchView(view);
+    });
+  });
+  
+  // Sort controls
+  setupSortControls('livefeed');
+  setupSortControls('logs');
+  setupSortControls('historical');
+  
+  // Modal
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.querySelector('.modal-backdrop').addEventListener('click', closeModal);
+}
+
+function setupSortControls(view) {
+  const sortBtns = document.querySelectorAll(`#${view}View .sort-btn`);
+  const sortOrderBtn = document.getElementById(`${view}SortOrder`);
+  
+  if (sortBtns.length > 0) {
+    sortBtns.forEach(btn => {
+      btn.addEventListener('click', function() {
+        sortBtns.forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        state.sortBy = this.getAttribute('data-sort');
+        renderView(view);
+      });
+    });
+  }
+  
+  if (sortOrderBtn) {
+    sortOrderBtn.addEventListener('click', function() {
+      state.sortOrder = state.sortOrder === 'asc' ? 'desc' : 'asc';
+      this.style.transform = state.sortOrder === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)';
+      renderView(view);
+    });
+  }
+}
+
+// OTP Functions
+function generateOTP() {
+  const btn = document.getElementById('generateOtpBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading"></span>';
+  
+  google.script.run
+    .withSuccessHandler(function(response) {
+      btn.disabled = false;
+      btn.textContent = 'Generate OTP';
+      
+      if (response.success) {
+        showNotification('OTP sent to your email', 'success');
+        state.otpExpiryTime = response.expiryTime;
+        startOTPTimer();
+      } else {
+        showNotification(response.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      btn.disabled = false;
+      btn.textContent = 'Generate OTP';
+      showNotification('Failed to generate OTP: ' + error, 'error');
+    })
+    .generateAndSendOTP();
+}
+
+function startOTPTimer() {
+  const container = document.getElementById('otpProgressContainer');
+  const fill = document.getElementById('otpProgressFill');
+  const timer = document.getElementById('otpTimer');
+  
+  container.style.display = 'block';
+  
+  const totalTime = 3 * 60 * 1000; // 3 minutes in milliseconds
+  const startTime = Date.now();
+  
+  if (state.otpInterval) {
+    clearInterval(state.otpInterval);
+  }
+  
+  state.otpInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const remaining = totalTime - elapsed;
+    
+    if (remaining <= 0) {
+      clearInterval(state.otpInterval);
+      container.style.display = 'none';
+      showNotification('OTP expired. Please generate a new one.', 'error');
+      return;
+    }
+    
+    const percentage = (remaining / totalTime) * 100;
+    fill.style.width = percentage + '%';
+    
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    timer.textContent = `OTP expires in ${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }, 100);
+}
+
+function verifyOTP(otp) {
+  // Format OTP
+  const formattedOTP = otp.substring(0, 3) + '-' + otp.substring(3);
+  
+  google.script.run
+    .withSuccessHandler(function(response) {
+      if (response.success) {
+        state.sessionToken = response.sessionToken;
+        localStorage.setItem('sessionToken', response.sessionToken);
+        
+        if (state.otpInterval) {
+          clearInterval(state.otpInterval);
+        }
+        
+        showNotification('Login successful!', 'success');
+        
+        // Clear OTP inputs
+        document.querySelectorAll('.otp-input').forEach(input => input.value = '');
+        
+        setTimeout(() => {
+          showApp();
+        }, 500);
+      } else {
+        showNotification(response.message, 'error');
+        // Clear OTP inputs on error
+        document.querySelectorAll('.otp-input').forEach(input => {
+          input.value = '';
+        });
+        document.querySelector('.otp-input').focus();
+      }
+    })
+    .withFailureHandler(function(error) {
+      showNotification('Verification failed: ' + error, 'error');
+    })
+    .verifyOTP(formattedOTP);
+}
+
+// View Management
+function switchView(view) {
+  state.currentView = view;
+  
+  // Update view toggle buttons
+  document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-view') === view);
+  });
+  
+  // Update view content
+  document.querySelectorAll('.view-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  document.getElementById(view + 'View').classList.add('active');
+  
+  // Render the view
+  renderView(view);
+}
+
+// Data Loading
+function loadData() {
+  google.script.run
+    .withSuccessHandler(function(response) {
+      if (response.success) {
+        state.alerts = response.data;
+        loadSyncStatus();
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Failed to load alerts:', error);
+    })
+    .getAllAlerts();
+}
+
+function loadSyncStatus() {
+  google.script.run
+    .withSuccessHandler(function(response) {
+      if (response.success) {
+        state.syncStatus = response.data;
+        renderAllViews();
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Failed to load sync status:', error);
+    })
+    .getSyncStatus();
+}
+
+function startDataPolling() {
+  // Poll for new data every 30 seconds
+  setInterval(() => {
+    loadData();
+  }, 30000);
+}
+
+// Rendering Functions
+function renderAllViews() {
+  renderDashboard();
+  renderLiveFeed();
+  renderLogs();
+  renderHistorical();
+}
+
+function renderView(view) {
+  switch(view) {
+    case 'dashboard':
+      renderDashboard();
+      break;
+    case 'livefeed':
+      renderLiveFeed();
+      break;
+    case 'logs':
+      renderLogs();
+      break;
+    case 'historical':
+      renderHistorical();
+      break;
+  }
+}
+
+function renderDashboard() {
+  google.script.run
+    .withSuccessHandler(function(response) {
+      if (response.success) {
+        const stats = response.data;
+        
+        // Update stat cards
+        document.getElementById('symbolsAppearedValue').textContent = stats.totalSymbols || 0;
+        document.getElementById('syncedCountValue').textContent = stats.syncedCount || 0;
+        document.getElementById('latestSymbolValue').textContent = stats.latestSymbol || '--';
+        
+        // Update Nifty card
+        if (stats.niftyData && stats.niftyData.length > 0) {
+          const latest = stats.niftyData[stats.niftyData.length - 1];
+          document.getElementById('niftyValue').textContent = latest.reason || 'Active';
+        }
+        
+        // Setup Nifty card click
+        document.getElementById('niftyCard').onclick = function() {
+          showNiftyModal(stats.niftyData);
+        };
+        
+        // Render tickers
+        renderTickers();
+        
+        // Render synced signals
+        renderSyncedSignals();
+        
+        // Speak latest symbol if not muted
+        if (stats.latestSymbol && stats.latestSymbol !== '--' && !state.isMuted) {
+          speakSymbol(stats.latestSymbol);
+        }
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Failed to load dashboard stats:', error);
+    })
+    .getDashboardStats();
+}
+
+function renderTickers() {
+  // Get HVD signals
+  const hvdAlerts = state.alerts.filter(a => 
+    a.reason.toUpperCase().includes('HVD') && 
+    state.syncStatus[a.symbol] && 
+    state.syncStatus[a.symbol].synced
+  );
+  
+  // Get Pattern signals
+  const patternAlerts = state.alerts.filter(a => 
+    !a.reason.toUpperCase().includes('HVD') && 
+    a.indicator === '2' &&
+    state.syncStatus[a.symbol] && 
+    state.syncStatus[a.symbol].synced
+  );
+  
+  // Render HVD ticker
+  renderTickerItems('hvdTicker', hvdAlerts.slice(-7).reverse());
+  
+  // Render Pattern ticker
+  renderTickerItems('patternTicker', patternAlerts.slice(-7).reverse());
+}
+
+function renderTickerItems(tickerId, items) {
+  const ticker = document.getElementById(tickerId);
+  const content = ticker.querySelector('.ticker-content');
+  
+  if (items.length === 0) {
+    content.innerHTML = '<div class="ticker-item">No data available</div>';
+    return;
+  }
+  
+  let html = '';
+  items.forEach((item, index) => {
+    const sizeClass = `size-${index + 1}`;
+    const typeClass = isBullish(item.reason) ? 'bullish' : isBearish(item.reason) ? 'bearish' : '';
+    
+    let displayText = item.symbol;
+    if (item.capital_deployed_cr) {
+      displayText += ` (${item.capital_deployed_cr} Cr)`;
+    } else {
+      displayText += ` - ${formatReason(item.reason)}`;
+    }
+    
+    html += `<div class="ticker-item ${sizeClass} ${typeClass}">${displayText}</div>`;
+  });
+  
+  // Duplicate for seamless scrolling
+  content.innerHTML = html + html;
+}
+
+function renderSyncedSignals() {
+  const grid = document.getElementById('syncedSignalsGrid');
+  
+  // Group alerts by symbol
+  const symbolMap = {};
+  state.alerts.forEach(alert => {
+    if (!symbolMap[alert.symbol]) {
+      symbolMap[alert.symbol] = {
+        symbol: alert.symbol,
+        indicator1: [],
+        indicator2: [],
+        synced: state.syncStatus[alert.symbol]?.synced || false
+      };
+    }
+    
+    if (alert.indicator === '1' || alert.indicator === 'indicator1') {
+      symbolMap[alert.symbol].indicator1.push(alert);
+    } else if (alert.indicator === '2' || alert.indicator === 'indicator2') {
+      symbolMap[alert.symbol].indicator2.push(alert);
+    }
+  });
+  
+  // Filter only synced symbols
+  const syncedSymbols = Object.values(symbolMap).filter(s => s.synced);
+  
+  if (syncedSymbols.length === 0) {
+    grid.innerHTML = '<p style="text-align: center; color: var(--color-text-tertiary);">No synced signals yet</p>';
+    return;
+  }
+  
+  let html = '';
+  syncedSymbols.forEach(symbolData => {
+    const latestInd1 = symbolData.indicator1[symbolData.indicator1.length - 1];
+    const latestInd2 = symbolData.indicator2[symbolData.indicator2.length - 1];
+    const oldInd2 = symbolData.indicator2.slice(0, -1);
+    
+    html += `
+      <div class="signal-card glass-card" onclick="showSyncDetailModal('${symbolData.symbol}')">
+        <div class="signal-header">
+          <div class="signal-symbol">${symbolData.symbol}</div>
+          <div class="signal-status synced">Synced</div>
+        </div>
+        ${latestInd1 ? `<div class="signal-reason"><span class="reason-label">Ind 1:</span> ${formatReason(latestInd1.reason)}</div>` : ''}
+        ${latestInd2 ? `<div class="signal-reason"><span class="reason-label">Latest Ind 2:</span> ${formatReason(latestInd2.reason)}${latestInd2.capital_deployed_cr ? ' (' + latestInd2.capital_deployed_cr + ' Cr)' : ''}</div>` : ''}
+        ${oldInd2.map(alert => `<div class="signal-reason"><span class="reason-label">Ind 2:</span> ${formatReason(alert.reason)}${alert.capital_deployed_cr ? ' (' + alert.capital_deployed_cr + ' Cr)' : ''}</div>`).join('')}
+      </div>
+    `;
+  });
+  
+  grid.innerHTML = html;
+}
+
+function renderLiveFeed() {
+  const grid = document.getElementById('livefeedGrid');
+  
+  // Get indicator 1 alerts
+  const ind1Alerts = state.alerts.filter(a => a.indicator === '1' || a.indicator === 'indicator1');
+  
+  if (ind1Alerts.length === 0) {
+    grid.innerHTML = '<p style="text-align: center; color: var(--color-text-tertiary);">No signals yet</p>';
+    return;
+  }
+  
+  // Sort
+  const sorted = sortAlerts(ind1Alerts);
+  
+  let html = '';
+  sorted.forEach(alert => {
+    const synced = state.syncStatus[alert.symbol]?.synced || false;
+    const status = synced ? 'synced' : 'awaiting';
+    
+    html += `
+      <div class="signal-card glass-card" onclick="showLiveFeedModal('${alert.symbol}')">
+        <div class="signal-header">
+          <div class="signal-symbol">${alert.symbol}</div>
+          <div class="signal-status ${status}">${status}</div>
+        </div>
+        <div class="signal-time">${formatTimestamp(alert.timestamp)}</div>
+        <div class="signal-reason">${formatReason(alert.reason)}</div>
+      </div>
+    `;
+  });
+  
+  grid.innerHTML = html;
+}
+
+function renderLogs() {
+  // Separate alerts by category
+  const hvdAlerts = [];
+  const bullishAlerts = [];
+  const bearishAlerts = [];
+  const oversoldAlerts = [];
+  const overboughtAlerts = [];
+  
+  state.alerts.forEach(alert => {
+    if (alert.indicator !== '2' && alert.indicator !== 'indicator2') return;
+    
+    const reason = alert.reason.toLowerCase();
+    
+    if (reason.includes('hvd')) {
+      hvdAlerts.push(alert);
+    } else if (reason.includes('standalone')) {
+      if (isBullish(reason)) {
+        oversoldAlerts.push(alert);
+      } else if (isBearish(reason)) {
+        overboughtAlerts.push(alert);
+      }
+    } else {
+      if (isBullish(reason)) {
+        bullishAlerts.push(alert);
+      } else if (isBearish(reason)) {
+        bearishAlerts.push(alert);
+      }
+    }
+  });
+  
+  // Render each section
+  renderLogsGrid('hvdLogsGrid', sortAlerts(hvdAlerts));
+  renderLogsGrid('bullishLogsGrid', sortAlerts(bullishAlerts));
+  renderLogsGrid('bearishLogsGrid', sortAlerts(bearishAlerts));
+  renderLogsGrid('oversoldLogsGrid', sortAlerts(oversoldAlerts));
+  renderLogsGrid('overboughtLogsGrid', sortAlerts(overboughtAlerts));
+}
+
+function renderLogsGrid(gridId, alerts) {
+  const grid = document.getElementById(gridId);
+  
+  if (alerts.length === 0) {
+    grid.innerHTML = '<p style="text-align: center; color: var(--color-text-tertiary); font-size: 12px;">No data</p>';
+    return;
+  }
+  
+  let html = '';
+  alerts.forEach(alert => {
+    const synced = state.syncStatus[alert.symbol]?.synced || false;
+    const status = synced ? 'synced' : 'unsynced';
+    
+    html += `
+      <div class="signal-card glass-card" onclick="showLogDetailModal('${alert.symbol}')">
+        <div class="signal-header">
+          <div class="signal-symbol" style="font-size: 14px;">${alert.symbol}</div>
+          <div class="signal-status ${status}" style="font-size: 10px;">${status}</div>
+        </div>
+        <div class="signal-time" style="font-size: 11px;">${formatTimestamp(alert.timestamp)}</div>
+        <div class="signal-reason" style="font-size: 11px;">${formatReason(alert.reason)}${alert.capital_deployed_cr ? ' (' + alert.capital_deployed_cr + ' Cr)' : ''}</div>
+      </div>
+    `;
+  });
+  
+  grid.innerHTML = html;
+}
+
+function renderHistorical() {
+  const datesGrid = document.getElementById('datesGrid');
+  
+  // Get unique dates
+  const dates = {};
+  state.alerts.forEach(alert => {
+    const date = new Date(alert.received_at);
+    const dateStr = date.toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    if (!dates[dateStr]) {
+      dates[dateStr] = date.getTime();
+    }
+  });
+  
+  const sortedDates = Object.entries(dates).sort((a, b) => b[1] - a[1]);
+  
+  if (sortedDates.length === 0) {
+    datesGrid.innerHTML = '<p style="text-align: center; color: var(--color-text-tertiary);">No historical data</p>';
+    return;
+  }
+  
+  let html = '';
+  sortedDates.forEach(([dateStr, timestamp]) => {
+    html += `
+      <div class="date-card glass-card" onclick="showHistoricalDate('${dateStr}', ${timestamp})">
+        <div class="date-value">${dateStr}</div>
+      </div>
+    `;
+  });
+  
+  datesGrid.innerHTML = html;
+}
+
+function showHistoricalDate(dateStr, timestamp) {
+  const grid = document.getElementById('historicalSignalsGrid');
+  grid.style.display = 'grid';
+  
+  // Get alerts for this date
+  const dateAlerts = state.alerts.filter(alert => {
+    const alertDate = new Date(alert.received_at);
+    const alertDateStr = alertDate.toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    return alertDateStr === dateStr && (alert.indicator === '1' || alert.indicator === 'indicator1');
+  });
+  
+  const sorted = sortAlerts(dateAlerts);
+  
+  let html = '';
+  sorted.forEach(alert => {
+    const synced = state.syncStatus[alert.symbol]?.synced || false;
+    const status = synced ? 'synced' : 'unsynced';
+    
+    html += `
+      <div class="signal-card glass-card" onclick="showHistoricalDetailModal('${alert.symbol}', '${dateStr}')">
+        <div class="signal-header">
+          <div class="signal-symbol">${alert.symbol}</div>
+          <div class="signal-status ${status}">${status}</div>
+        </div>
+        <div class="signal-time">${formatTimestamp(alert.timestamp)}</div>
+        <div class="signal-reason">${formatReason(alert.reason)}</div>
+      </div>
+    `;
+  });
+  
+  grid.innerHTML = html;
+}
+
+// Modal Functions
+function showNiftyModal(niftyData) {
+  const modal = document.getElementById('detailModal');
+  const body = document.getElementById('modalBody');
+  
+  let html = '<h2 class="modal-title">Nifty Data</h2>';
+  
+  if (niftyData && niftyData.length > 0) {
+    niftyData.forEach(data => {
+      html += `
+        <div class="modal-detail-row">
+          <span class="modal-detail-label">Time:</span>
+          <span class="modal-detail-value">${formatTimestamp(data.timestamp)}</span>
+        </div>
+        <div class="modal-detail-row">
+          <span class="modal-detail-label">Reason:</span>
+          <span class="modal-detail-value">${formatReason(data.reason)}</span>
+        </div>
+      `;
+    });
+  } else {
+    html += '<p>No Nifty data available</p>';
+  }
+  
+  body.innerHTML = html;
+  modal.classList.add('active');
+}
+
+function showLiveFeedModal(symbol) {
+  const modal = document.getElementById('detailModal');
+  const body = document.getElementById('modalBody');
+  
+  const ind1Alerts = state.alerts.filter(a => 
+    a.symbol === symbol && (a.indicator === '1' || a.indicator === 'indicator1')
+  );
+  const ind2Alerts = state.alerts.filter(a => 
+    a.symbol === symbol && (a.indicator === '2' || a.indicator === 'indicator2')
+  );
+  
+  const synced = state.syncStatus[symbol]?.synced || false;
+  
+  let html = `
+    <h2 class="modal-title">${symbol}</h2>
+    <div class="modal-detail-row">
+      <span class="modal-detail-label">Status:</span>
+      <span class="modal-detail-value">${synced ? 'Synced' : 'Awaiting'}</span>
+    </div>
+  `;
+  
+  if (ind1Alerts.length > 0) {
+    html += '<h3 style="margin-top: 20px; margin-bottom: 10px;">Indicator 1</h3>';
+    ind1Alerts.forEach(alert => {
+      html += `
+        <div class="modal-detail-row">
+          <span class="modal-detail-label">${formatTimestamp(alert.timestamp)}</span>
+          <span class="modal-detail-value">${formatReason(alert.reason)}</span>
+        </div>
+      `;
+    });
+  }
+  
+  if (ind2Alerts.length > 0 && synced) {
+    html += '<h3 style="margin-top: 20px; margin-bottom: 10px;">Synced With (Indicator 2)</h3>';
+    ind2Alerts.forEach(alert => {
+      html += `
+        <div class="modal-detail-row">
+          <span class="modal-detail-label">${formatTimestamp(alert.timestamp)}</span>
+          <span class="modal-detail-value">${formatReason(alert.reason)}${alert.capital_deployed_cr ? ' (' + alert.capital_deployed_cr + ' Cr)' : ''}</span>
+        </div>
+      `;
+    });
+  }
+  
+  body.innerHTML = html;
+  modal.classList.add('active');
+}
+
+function showLogDetailModal(symbol) {
+  showLiveFeedModal(symbol);
+}
+
+function showHistoricalDetailModal(symbol, dateStr) {
+  showLiveFeedModal(symbol);
+}
+
+function showSyncDetailModal(symbol) {
+  showLiveFeedModal(symbol);
+}
+
+function closeModal() {
+  const modal = document.getElementById('detailModal');
+  modal.classList.remove('active');
+}
+
+// Utility Functions
+function sortAlerts(alerts) {
+  const sorted = [...alerts];
+  
+  if (state.sortBy === 'time') {
+    sorted.sort((a, b) => {
+      const timeA = a.received_at || a.timestamp;
+      const timeB = b.received_at || b.timestamp;
+      return state.sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+    });
+  } else if (state.sortBy === 'status') {
+    sorted.sort((a, b) => {
+      const statusA = state.syncStatus[a.symbol]?.synced ? 1 : 0;
+      const statusB = state.syncStatus[b.symbol]?.synced ? 1 : 0;
+      return state.sortOrder === 'asc' ? statusA - statusB : statusB - statusA;
+    });
+  }
+  
+  return sorted;
+}
+
+function formatTimestamp(timestamp) {
+  const date = new Date(parseInt(timestamp));
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function formatReason(reason) {
+  // Replace bullish/bearish with symbols
+  let formatted = reason.replace(/bullish/gi, '📈');
+  formatted = formatted.replace(/bearish/gi, '📉');
+  return formatted;
+}
+
+function isBullish(reason) {
+  const r = reason.toLowerCase();
+  return r.includes('bullish') || r.includes('bull') || r.includes('buy');
+}
+
+function isBearish(reason) {
+  const r = reason.toLowerCase();
+  return r.includes('bearish') || r.includes('bear') || r.includes('sell');
+}
+
+function toggleMute() {
+  state.isMuted = !state.isMuted;
+  const btn = document.getElementById('muteToggle');
+  const icon = btn.querySelector('.icon');
+  
+  if (state.isMuted) {
+    icon.innerHTML = `
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="23" y1="9" x2="17" y2="15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="17" y1="9" x2="23" y2="15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    `;
+  } else {
+    icon.innerHTML = `
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    `;
+  }
+}
+
+function speakSymbol(symbol) {
+  if ('speechSynthesis' in window) {
+    // Parse symbol for Hindi pronunciation
+    const words = symbol.split(' ');
+    let textToSpeak = '';
+    
+    words.forEach((word, index) => {
+      if (index === 0 && word.length <= 4) {
+        // Spell out first word if 4 or fewer letters
+        textToSpeak += word.split('').join(', ') + ' ';
+      } else {
+        textToSpeak += word + ' ';
+      }
+    });
+    
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.lang = 'hi-IN'; // Hindi
+    utterance.rate = 0.9;
+    utterance.pitch = 1.2;
+    
+    // Try to use female voice
+    const voices = speechSynthesis.getVoices();
+    const femaleHindiVoice = voices.find(voice => 
+      voice.lang.includes('hi') && voice.name.toLowerCase().includes('female')
+    );
+    
+    if (femaleHindiVoice) {
+      utterance.voice = femaleHindiVoice;
+    }
+    
+    speechSynthesis.speak(utterance);
+  }
+}
+
+function showNotification(message, type = 'info') {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.animation = 'slideInRight 0.3s ease-out reverse';
+    setTimeout(() => {
+      document.body.removeChild(notification);
+    }, 300);
+  }, 3000);
+}
+
+// Load voices (for speech synthesis)
+if ('speechSynthesis' in window) {
+  speechSynthesis.addEventListener('voiceschanged', () => {
+    speechSynthesis.getVoices();
+  });
+}
+</script>

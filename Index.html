@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automated Trading Signals - Maurvi Consultants</title>
+  <?!= include('Styles'); ?>
+</head>
+<body class="dark-mode">
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-container">
+    <div class="gradient-background"></div>
+    <div class="login-card glass-card">
+      <!-- Logo -->
+      <div class="logo-container">
+        <svg class="company-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <!-- M logo with right peak higher -->
+          <path d="M 20 80 L 20 30 L 35 55 L 50 35 L 65 60 L 80 20 L 80 80" 
+                stroke="url(#logoGradient)" 
+                stroke-width="6" 
+                fill="none" 
+                stroke-linecap="round" 
+                stroke-linejoin="round"/>
+        </svg>
+      </div>
+      
+      <h1 class="company-name">Maurvi Consultants</h1>
+      <h2 class="app-name">Automated Trading Signals</h2>
+      
+      <div class="login-form">
+        <div class="otp-input-container">
+          <input type="text" class="otp-input" maxlength="1" data-index="0">
+          <input type="text" class="otp-input" maxlength="1" data-index="1">
+          <input type="text" class="otp-input" maxlength="1" data-index="2">
+          <span class="otp-separator">-</span>
+          <input type="text" class="otp-input" maxlength="1" data-index="3">
+          <input type="text" class="otp-input" maxlength="1" data-index="4">
+          <input type="text" class="otp-input" maxlength="1" data-index="5">
+        </div>
+        
+        <button id="generateOtpBtn" class="btn-primary">Generate OTP</button>
+        
+        <div id="otpProgressContainer" class="otp-progress-container" style="display: none;">
+          <div class="otp-progress-bar">
+            <div id="otpProgressFill" class="otp-progress-fill"></div>
+          </div>
+          <p class="otp-timer" id="otpTimer">OTP expires in 3:00</p>
+        </div>
+        
+        <p class="login-help-text">Enter 6-digit OTP sent to your email</p>
+      </div>
+      
+      <button id="loginThemeToggle" class="theme-toggle-btn">
+        <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main App Container -->
+  <div id="appContainer" class="app-container" style="display: none;">
+    <div class="gradient-background"></div>
+    
+    <!-- Header -->
+    <header class="app-header glass-card">
+      <div class="logo-button" id="logoButton">
+        <svg class="header-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="headerLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <path d="M 20 80 L 20 30 L 35 55 L 50 35 L 65 60 L 80 20 L 80 80" 
+                stroke="url(#headerLogoGradient)" 
+                stroke-width="6" 
+                fill="none" 
+                stroke-linecap="round" 
+                stroke-linejoin="round"/>
+        </svg>
+      </div>
+      
+      <div class="header-controls">
+        <div class="view-toggle-container">
+          <div class="view-toggle glass-button">
+            <button class="view-toggle-btn active" data-view="dashboard">Dashboard</button>
+            <button class="view-toggle-btn" data-view="livefeed">Live Feed</button>
+            <button class="view-toggle-btn" data-view="logs">Logs</button>
+            <button class="view-toggle-btn" data-view="historical">Historical</button>
+          </div>
+        </div>
+        
+        <button id="muteToggle" class="icon-btn glass-button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        
+        <button id="themeToggle" class="icon-btn glass-button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Dashboard View -->
+    <div id="dashboardView" class="view-content active">
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card glass-card clickable" id="niftyCard">
+          <div class="stat-icon">📊</div>
+          <div class="stat-label">Nifty Data</div>
+          <div class="stat-value" id="niftyValue">--</div>
+        </div>
+        
+        <div class="stat-card glass-card">
+          <div class="stat-icon">📈</div>
+          <div class="stat-label">Symbols Appeared</div>
+          <div class="stat-value" id="symbolsAppearedValue">0</div>
+        </div>
+        
+        <div class="stat-card glass-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-label">Synced Signals</div>
+          <div class="stat-value" id="syncedCountValue">0</div>
+        </div>
+        
+        <div class="stat-card glass-card">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-label">Latest Symbol</div>
+          <div class="stat-value" id="latestSymbolValue">--</div>
+        </div>
+      </div>
+
+      <!-- Tickers -->
+      <div class="tickers-container">
+        <div class="ticker-section">
+          <h3 class="ticker-title">Latest HVD Synced Signals</h3>
+          <div class="ticker glass-card" id="hvdTicker">
+            <div class="ticker-content">
+              <!-- Dynamic content will be added here -->
+            </div>
+          </div>
+        </div>
+        
+        <div class="ticker-section">
+          <h3 class="ticker-title">Latest Pattern Synced Signals</h3>
+          <div class="ticker glass-card" id="patternTicker">
+            <div class="ticker-content">
+              <!-- Dynamic content will be added here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Synced Signals Window -->
+      <div class="synced-signals-section">
+        <h2 class="section-title">Synced Signals</h2>
+        <div class="signals-grid" id="syncedSignalsGrid">
+          <!-- Dynamic cards will be added here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Feed View -->
+    <div id="livefeedView" class="view-content">
+      <div class="view-header">
+        <h2 class="view-title">Live Feed</h2>
+        <div class="sort-controls">
+          <div class="sort-toggle glass-button">
+            <button class="sort-btn active" data-sort="time">Time</button>
+            <button class="sort-btn" data-sort="status">Status</button>
+          </div>
+          <button class="icon-btn glass-button" id="livefeedSortOrder">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="12" y1="5" x2="12" y2="19" stroke-width="2" stroke-linecap="round"/>
+              <polyline points="19 12 12 19 5 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="signals-grid" id="livefeedGrid">
+        <!-- Dynamic cards will be added here -->
+      </div>
+    </div>
+
+    <!-- Logs View -->
+    <div id="logsView" class="view-content">
+      <div class="view-header">
+        <h2 class="view-title">Logs</h2>
+        <div class="sort-controls">
+          <div class="sort-toggle glass-button">
+            <button class="sort-btn active" data-sort="time">Time</button>
+            <button class="sort-btn" data-sort="status">Status</button>
+          </div>
+          <button class="icon-btn glass-button" id="logsSortOrder">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="12" y1="5" x2="12" y2="19" stroke-width="2" stroke-linecap="round"/>
+              <polyline points="19 12 12 19 5 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="logs-layout">
+        <!-- Left half: HVD -->
+        <div class="logs-section logs-hvd">
+          <h3 class="logs-section-title">Significant Deployed Capital</h3>
+          <div class="logs-grid" id="hvdLogsGrid">
+            <!-- Dynamic cards -->
+          </div>
+        </div>
+        
+        <!-- Right half: 4 quadrants -->
+        <div class="logs-quadrants">
+          <div class="logs-section logs-quadrant">
+            <h3 class="logs-section-title">📈 Bullish Activity</h3>
+            <div class="logs-grid" id="bullishLogsGrid">
+              <!-- Dynamic cards -->
+            </div>
+          </div>
+          
+          <div class="logs-section logs-quadrant">
+            <h3 class="logs-section-title">📉 Bearish Activity</h3>
+            <div class="logs-grid" id="bearishLogsGrid">
+              <!-- Dynamic cards -->
+            </div>
+          </div>
+          
+          <div class="logs-section logs-quadrant">
+            <h3 class="logs-section-title">💹 Oversold</h3>
+            <div class="logs-grid" id="oversoldLogsGrid">
+              <!-- Dynamic cards -->
+            </div>
+          </div>
+          
+          <div class="logs-section logs-quadrant">
+            <h3 class="logs-section-title">📊 Overbought</h3>
+            <div class="logs-grid" id="overboughtLogsGrid">
+              <!-- Dynamic cards -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historical View -->
+    <div id="historicalView" class="view-content">
+      <div class="view-header">
+        <h2 class="view-title">Historical Data</h2>
+        <div class="sort-controls">
+          <div class="sort-toggle glass-button">
+            <button class="sort-btn active" data-sort="time">Time</button>
+            <button class="sort-btn" data-sort="status">Status</button>
+          </div>
+          <button class="icon-btn glass-button" id="historicalSortOrder">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="12" y1="5" x2="12" y2="19" stroke-width="2" stroke-linecap="round"/>
+              <polyline points="19 12 12 19 5 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="dates-grid" id="datesGrid">
+        <!-- Date cards will be added here -->
+      </div>
+      <div class="signals-grid" id="historicalSignalsGrid" style="display: none; margin-top: 20px;">
+        <!-- Historical signals will be shown here after date selection -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for detailed view -->
+  <div id="detailModal" class="modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass-card">
+      <button class="modal-close" id="modalClose">×</button>
+      <div id="modalBody">
+        <!-- Dynamic content will be added here -->
+      </div>
+    </div>
+  </div>
+
+  <?!= include('Script'); ?>
+</body>
+</html>

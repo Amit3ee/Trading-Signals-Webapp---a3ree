@@ -1,0 +1,32 @@
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.code-workspace
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Node modules (if using clasp)
+node_modules/
+
+# Build files
+dist/
+build/
+
+# Google Apps Script
+.clasprc.json
+.clasp.json
